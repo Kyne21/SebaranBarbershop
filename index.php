@@ -1,3 +1,44 @@
+<?php
+// Koneksi ke database
+$host = "localhost";
+$user = "root";
+$password = "";
+$database = "barbershopsalon";
+
+$conn = new mysqli($host, $user, $password, $database);
+
+// Periksa koneksi
+if ($conn->connect_error) {
+    die("Koneksi gagal: " . $conn->connect_error);
+}
+
+// Query untuk mengambil data kategori harga
+$sql = "SELECT 
+            CASE 
+                WHEN harga = 1 THEN 'Terjangkau'
+                WHEN harga = 2 THEN 'Sedang'
+                WHEN harga = 3 THEN 'Mahal'
+            END AS kategori,
+            COUNT(*) AS jumlah
+        FROM sebaran
+        GROUP BY harga";
+
+$result = $conn->query($sql);
+
+// Array untuk data chart
+$dataPoints = array();
+
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $dataPoints[] = array("label" => $row['kategori'], "y" => $row['jumlah']);
+    }
+}
+
+// Tutup koneksi
+$conn->close();
+?>
+
+
 <!DOCTYPE html>
 <html lang="id">
 
@@ -176,6 +217,37 @@
             text-decoration: underline;
         }
     </style>
+    <script>
+        window.onload = function () {
+            var chart = new CanvasJS.Chart("chartContainer", {
+                animationEnabled: true,
+                title: {
+                    text: "Kategori Barbershop dan Salon Berdasarkan Harga"
+                },
+                subtitles: [{
+                    text: "Desember 2024"
+                }],
+                data: [{
+                    type: "pie",
+                    yValueFormatString: "#,##0\"\"",
+                    indexLabel: "{label} ({y})",
+                    dataPoints: <?php echo json_encode($dataPoints, JSON_NUMERIC_CHECK); ?>
+                }]
+            });
+
+            chart.options.data[0].dataPoints.forEach(point => {
+                if (point.label === "Terjangkau") {
+                    point.color = "#5CB338";
+                } else if (point.label === "Sedang") {
+                    point.color = "#ECE852";
+                } else if (point.label === "Mahal") {
+                    point.color = "#FB4141";
+                }
+            });
+            chart.render();
+
+        }
+    </script>
 </head>
 
 <body>
@@ -211,6 +283,8 @@
         </div>
     </div>
 
+    <div id="chartContainer" style="height: 370px; width: 100%;"></div>
+
     <div class="white-section" id="dataSection">
         <h2>DATA BARBERSHOP DAN SALON</h2>
         <div class="filter-container">
@@ -237,7 +311,9 @@
         </table>
     </div>
 
+
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.canvasjs.com/canvasjs.min.js"></script>
     <script>
         var map = L.map('map').setView([-6.9176, 107.6191], 12);
 
